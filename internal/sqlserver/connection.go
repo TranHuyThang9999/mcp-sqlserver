@@ -76,10 +76,10 @@ func Open(ctx context.Context, cfg config.DatabaseConfig) (*sql.DB, error) {
 	db.SetMaxOpenConns(cfg.MaxOpenConnections)
 	db.SetMaxIdleConns(cfg.MaxIdleConnections)
 
-	ctx, cancel := context.WithTimeout(ctx, cfg.ConnectionTimeout)
+	pingCtx, cancel := context.WithTimeout(ctx, cfg.ConnectionTimeout)
 	defer cancel()
-	if err := db.PingContext(ctx); err != nil {
-		_ = db.Close()
+	if err := db.PingContext(pingCtx); err != nil {
+		db.Close()
 		return nil, err
 	}
 	return db, nil

@@ -40,7 +40,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer func() { _ = db.Close() }()
+	defer db.Close()
 
 	server := mcp.NewServer(&mcp.Implementation{
 		Name:    "mcp-sqlserver",
