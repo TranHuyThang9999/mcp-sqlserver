@@ -8,11 +8,23 @@ import (
 	"mcp_sqlserver/internal/config"
 )
 
+// Service provides methods for querying and executing SQL against SQL Server.
+//
+// Service wraps a sql.DB connection and provides high-level operations
+// for the MCP server, including SQL validation and row result mapping.
+//
+// The type is safe for concurrent use by multiple goroutines.
 type Service struct {
 	db  *sql.DB
 	cfg config.ServerConfig
 }
 
+// NewService creates a new Service instance.
+//
+//	db is the SQL Server database connection.
+//	cfg is the server configuration with query limits and permissions.
+//
+// Returns a new Service configured with the given parameters.
 func NewService(db *sql.DB, cfg config.ServerConfig) *Service {
 	s := &Service{db: db, cfg: cfg}
 	return s

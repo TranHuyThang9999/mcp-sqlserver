@@ -1,3 +1,17 @@
+// Package config provides configuration loading from environment variables.
+//
+// This package loads configuration for the MCP SQL Server from environment
+// variables, with sensible defaults for local development.
+//
+// Configuration precedence:
+//
+//  1. Environment variables (highest priority)
+//  2. Default values (lowest priority)
+//
+// Example:
+//
+//	cfg := config.Load()
+//	// cfg.Database.Host contains the configured SQL Server host
 package config
 
 import (
@@ -7,6 +21,7 @@ import (
 	"time"
 )
 
+// Config holds the complete configuration for the MCP SQL Server.
 type Config struct {
 	Database DatabaseConfig
 	Server   ServerConfig

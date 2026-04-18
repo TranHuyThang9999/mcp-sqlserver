@@ -1,5 +1,11 @@
+// Package sqlserver provides data types and database operations for SQL Server.
+//
+// This package contains the Service type for executing queries and operations
+// against Microsoft SQL Server, along with all data types used for mapping
+// query results to JSON responses for MCP.
 package sqlserver
 
+// QueryResult represents the result of a SELECT query.
 type QueryResult struct {
 	Columns  []string         `json:"columns"`
 	Rows     []map[string]any `json:"rows"`

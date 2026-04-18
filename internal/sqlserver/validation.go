@@ -1,3 +1,8 @@
+// Package sqlserver provides SQL validation for secure query execution.
+//
+// This package validates SQL statements before execution to ensure only
+// allowed operations are performed. It prevents dangerous SQL Server
+// procedures and optionally allows schema-changing statements.
 package sqlserver
 
 import (
@@ -6,8 +11,10 @@ import (
 	"strings"
 )
 
+// firstTokenPattern extracts the first SQL keyword from a query.
 var firstTokenPattern = regexp.MustCompile(`(?is)^\s*(?:--[^\n]*\n|/\*.*?\*/\s*)*([a-z]+)`)
 
+// dangerousTokens is a list of SQL Server capabilities that are blocked by default.
 var dangerousTokens = []string{
 	"xp_cmdshell",
 	"sp_configure",
