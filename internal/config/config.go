@@ -29,8 +29,9 @@ type Config struct {
 }
 
 type RAGConfig struct {
-	Enabled   bool
-	AutoLearn bool
+	Enabled    bool
+	AutoLearn  bool
+	SaveQueries bool
 }
 
 type DatabaseConfig struct {
@@ -80,8 +81,9 @@ func Load() Config {
 			AllowProcedureCalls: envBool("MCP_SQLSERVER_ALLOW_PROCEDURE_CALLS", true),
 		},
 		RAG: RAGConfig{
-			Enabled:   envBool("MCP_RAG_ENABLED", true),
+			Enabled:    envBool("MCP_RAG_ENABLED", true),
 			AutoLearn: envBool("MCP_RAG_AUTO_LEARN", true),
+			SaveQueries: envBool("MCP_RAG_SAVE_QUERIES", false),
 		},
 	}
 }

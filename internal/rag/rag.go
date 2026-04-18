@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -52,10 +53,153 @@ func (ks *Store) init() error {
 		hash TEXT UNIQUE,
 		created_at TEXT
 	);
+	CREATE TABLE IF NOT EXISTS queries (
+		id INTEGER PRIMARY KEY,
+		sql TEXT,
+		summary TEXT,
+		rows_returned INTEGER,
+		complexity INTEGER,
+		execution_time_ms INTEGER,
+		created_at TEXT
+	);
+	CREATE TABLE IF NOT EXISTS schema_snapshots (
+		id INTEGER PRIMARY KEY,
+		schema TEXT,
+		name TEXT,
+		content TEXT,
+		snapshot_at TEXT
+	);
 	CREATE INDEX IF NOT EXISTS idx_hash ON knowledge(hash);
 	CREATE INDEX IF NOT EXISTS idx_name ON knowledge(schema, name);
+	CREATE INDEX IF NOT EXISTS idx_complexity ON queries(complexity);
+	CREATE INDEX IF NOT EXISTS idx_snapshot ON schema_snapshots(schema, name);
 	`)
 	return err
+}
+
+func (ks *Store) SaveQuery(ctx context.Context, sql string, rows int, complexity int, execTime int) error {
+	if complexity < 50 && rows < 100 {
+		return nil
+	}
+	summary := summarizeSQL(sql)
+	ks.mu.Lock()
+	defer ks.mu.Unlock()
+
+	_, err := ks.db.ExecContext(ctx, `
+	INSERT INTO queries (sql, summary, rows_returned, complexity, execution_time_ms, created_at)
+	VALUES (?, ?, ?, ?, ?, ?)
+	`, sql, summary, rows, complexity, execTime, time.Now().Format(time.RFC3339))
+	return err
+}
+
+
+
+func (ks *Store) SnapshotTable(ctx context.Context, schema, name string, data map[string]any) error {
+	content := formatContent(schema, name, data)
+	ts := time.Now().Format(time.RFC3339)
+
+	ks.mu.Lock()
+	defer ks.mu.Unlock()
+
+	result, err := ks.db.ExecContext(ctx, `
+	INSERT INTO schema_snapshots (schema, name, content, snapshot_at)
+	VALUES (?, ?, ?, ?)
+	ON CONFLICT(id) DO UPDATE SET content = excluded.content, snapshot_at = excluded.snapshot_at
+	`, schema, name, content, ts)
+	if err != nil {
+		return err
+	}
+	affected, _ := result.RowsAffected()
+	if affected > 0 {
+		_, _ = ks.db.ExecContext(ctx, `
+		DELETE FROM schema_snapshots WHERE id NOT IN (
+			SELECT id FROM schema_snapshots WHERE schema = ? AND name = ? ORDER BY snapshot_at DESC LIMIT 5
+		) AND schema = ? AND name = ?
+		`, schema, name, schema, name)
+	}
+	return nil
+}
+
+func (ks *Store) DetectChanges(ctx context.Context, schema, name string, current map[string]any) ([]SchemaChange, error) {
+	ks.mu.RLock()
+	defer ks.mu.RUnlock()
+
+	var lastContent string
+	err := ks.db.QueryRowContext(ctx, `
+	SELECT content FROM schema_snapshots WHERE schema = ? AND name = ? ORDER BY snapshot_at DESC LIMIT 1
+	`, schema, name).Scan(&lastContent)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	currentContent := formatContent(schema, name, current)
+	if currentContent == lastContent {
+		return nil, nil
+	}
+
+	var changes []SchemaChange
+	currentParts := parseContent(currentContent)
+	lastParts := parseContent(lastContent)
+
+	for col := range currentParts {
+		if _, ok := lastParts[col]; !ok {
+			changes = append(changes, SchemaChange{Type: "added", Field: col})
+		}
+	}
+	for col := range lastParts {
+		if _, ok := currentParts[col]; !ok {
+			changes = append(changes, SchemaChange{Type: "removed", Field: col})
+		}
+	}
+
+	return changes, nil
+}
+
+type SchemaChange struct {
+	Type  string
+	Field string
+}
+
+func parseContent(content string) map[string]string {
+	result := make(map[string]string)
+	re := regexp.MustCompile(`(\w+):`)
+	matches := re.FindAllStringSubmatch(content, -1)
+	for _, m := range matches {
+		if len(m) > 1 {
+			result[m[1]] = m[1]
+		}
+	}
+	return result
+}
+
+func (ks *Store) GetSavedQueries(ctx context.Context, limit int) ([]QueryInfo, error) {
+	if limit <= 0 {
+		limit = 10
+	}
+	ks.mu.RLock()
+	defer ks.mu.RUnlock()
+
+	rows, err := ks.db.QueryContext(ctx, `
+	SELECT sql, summary, complexity, rows_returned, execution_time_ms, created_at 
+	FROM queries ORDER BY complexity DESC, created_at DESC LIMIT ?
+	`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+
+	var results []QueryInfo
+	for rows.Next() {
+		var q QueryInfo
+		if err := rows.Scan(&q.SQL, &q.Summary, &q.Complexity, &q.RowsReturned, &q.ExecutionTime, &q.CreatedAt); err != nil {
+			continue
+		}
+		results = append(results, q)
+	}
+	return results, rows.Err()
 }
 
 func (ks *Store) LearnTable(ctx context.Context, schema, name string, data map[string]any) error {
@@ -209,8 +353,17 @@ type SearchResult struct {
 
 type SchemaDoc struct {
 	Schema      string
-	Name        string
+	Name       string
 	LastLearned string
+}
+
+type QueryInfo struct {
+	SQL           string
+	Summary       string
+	Complexity    int
+	RowsReturned  int
+	ExecutionTime int
+	CreatedAt     string
 }
 
 func formatContent(schema, name string, data map[string]any) string {
@@ -257,4 +410,95 @@ func matchScore(query, text string) float64 {
 		}
 	}
 	return float64(count) / float64(len(terms))
+}
+
+func summarizeSQL(sql string) string {
+	sql = strings.TrimSpace(sql)
+	sql = strings.ToUpper(sql)
+
+	var summary string
+	switch {
+	case strings.HasPrefix(sql, "SELECT"):
+		parts := extractSelectParts(sql)
+		summary = "SELECT " + parts.tables + "."
+		if len(parts.columns) > 0 {
+			summary += parts.columns
+		} else {
+			summary += "*"
+		}
+		if parts.hasJoin {
+			summary += " +JOIN"
+		}
+		if parts.hasGroupBy {
+			summary += " +GROUP"
+		}
+		if parts.hasOrderBy {
+			summary += " +ORDER"
+		}
+	case strings.HasPrefix(sql, "INSERT"):
+		summary = "INSERT INTO " + extractTableName(sql)
+	case strings.HasPrefix(sql, "UPDATE"):
+		summary = "UPDATE " + extractTableName(sql)
+	case strings.HasPrefix(sql, "DELETE"):
+		summary = "DELETE FROM " + extractTableName(sql)
+	default:
+		summary = sql
+		if len(sql) > 100 {
+			summary = sql[:100] + "..."
+		}
+	}
+	return summary
+}
+
+type selectParts struct {
+	tables   string
+	columns  string
+	hasJoin  bool
+	hasGroupBy bool
+	hasOrderBy bool
+}
+
+func extractSelectParts(sql string) selectParts {
+	var p selectParts
+
+	re := regexp.MustCompile(`(?i)FROM\s+(\w+)`)
+	matches := re.FindAllStringSubmatch(sql, -1)
+	if len(matches) > 0 {
+		var tables []string
+		for _, m := range matches {
+			if len(m) > 1 {
+				tables = append(tables, m[1])
+			}
+		}
+		p.tables = strings.Join(tables, ",")
+	}
+
+	re = regexp.MustCompile(`(?i)SELECT\s+(.+?)\s+FROM`)
+	match := re.FindStringSubmatch(sql)
+	if len(match) > 1 {
+		cols := strings.TrimSpace(match[1])
+		if cols != "*" {
+			colList := strings.Split(cols, ",")
+			if len(colList) > 5 {
+				p.columns = fmt.Sprintf("%d_cols", len(colList))
+			} else {
+				p.columns = strings.Join(colList, ",")
+			}
+		}
+	}
+
+	p.hasJoin = strings.Contains(sql, "JOIN")
+	p.hasGroupBy = strings.Contains(sql, "GROUP BY")
+	p.hasOrderBy = strings.Contains(sql, "ORDER BY")
+
+	return p
+}
+
+func extractTableName(sql string) string {
+	re := regexp.MustCompile(`(?i)(?:FROM|INTO|UPDATE)\s+(\w+)`)
+	match := re.FindStringSubmatch(sql)
+	if len(match) > 1 {
+		return match[1]
+	}
+	return "unknown"
 }
