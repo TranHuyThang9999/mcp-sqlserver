@@ -103,7 +103,7 @@ func (s *Service) query(ctx context.Context, sqlText string, maxRows int, args .
 	if err != nil {
 		return QueryResult{}, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	columns, err := rows.Columns()
 	if err != nil {

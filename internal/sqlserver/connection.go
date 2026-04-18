@@ -79,7 +79,7 @@ func Open(ctx context.Context, cfg config.DatabaseConfig) (*sql.DB, error) {
 	pingCtx, cancel := context.WithTimeout(ctx, cfg.ConnectionTimeout)
 	defer cancel()
 	if err := db.PingContext(pingCtx); err != nil {
-		db.Close()
+db.Close() //nolint:errcheck
 		return nil, err
 	}
 	return db, nil
