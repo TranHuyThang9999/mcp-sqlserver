@@ -108,6 +108,8 @@ go run ./cmd
 ## Build
 
 ```powershell
+git clone https://github.com/TranHuyThang9999/mcp-sqlserver.git
+
 go build -o mcp-sqlserver.exe ./cmd
 ```
 
