@@ -61,7 +61,7 @@ The installer asks for:
 To install a specific version:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\install-release-windows.ps1 -Version v1.0.0
+powershell -ExecutionPolicy Bypass -File .\scripts\install-release-windows.ps1 -Version v0.1.0
 ```
 
 ### Linux
@@ -141,13 +141,21 @@ When SQL Server runs on your Windows host, use `SQL_SERVER_HOST=host.docker.inte
 
 ## Codex MCP config
 
+The installer can write this config for you. Use this section only when you want to configure Codex manually.
+
 Codex does not use the `mcpServers` JSON format. Codex reads MCP servers from `~/.codex/config.toml`, and you can manage the same config with `codex mcp add` / `codex mcp list`.
+
+Replace `<path-to-mcp-sqlserver.exe>` with the executable path on your machine. On Windows, the auto-installer stores releases under:
+
+```text
+%LOCALAPPDATA%\mcp-sqlserver\releases\<version>\mcp-sqlserver-windows-amd64\mcp-sqlserver.exe
+```
 
 Use this TOML in `~/.codex/config.toml`:
 
 ```toml
 [mcp_servers.sqlserver]
-command = "D:\\codeGolang\\mcp_sqlserver\\mcp-sqlserver.exe"
+command = "<path-to-mcp-sqlserver.exe>"
 startup_timeout_sec = 10
 tool_timeout_sec = 60
 
@@ -175,7 +183,7 @@ args = [
   "--rm",
   "-i",
   "--env-file",
-  "D:\\codeGolang\\mcp_sqlserver\\.env",
+  "<path-to-project>\\.env",
   "mcp-sqlserver:local",
 ]
 startup_timeout_sec = 20
@@ -191,7 +199,7 @@ codex mcp add sqlserver `
   --env SQL_SERVER_USER=sa `
   --env SQL_SERVER_PASSWORD=your_password `
   --env SQL_SERVER_DATABASE=your_database `
-  -- D:\codeGolang\mcp_sqlserver\mcp-sqlserver.exe
+  -- <path-to-mcp-sqlserver.exe>
 ```
 
 Verify:
@@ -204,6 +212,8 @@ See `examples/codex-config.toml` for a complete Codex example.
 
 ## Cursor / VS Code MCP config
 
+The installer can write this config for you. Use this section only when you want to configure an MCP JSON file manually.
+
 Some IDE clients use JSON instead of Codex TOML. For those clients, see `examples/cursor-mcp.json`.
 
 Use the built executable as a stdio MCP server:
@@ -212,7 +222,7 @@ Use the built executable as a stdio MCP server:
 {
   "mcpServers": {
     "sqlserver": {
-      "command": "D:\\codeGolang\\mcp_sqlserver\\mcp-sqlserver.exe",
+      "command": "<path-to-mcp-sqlserver.exe>",
       "env": {
         "SQL_SERVER_HOST": "localhost",
         "SQL_SERVER_USER": "sa",
@@ -237,7 +247,7 @@ Docker-based MCP config:
         "--rm",
         "-i",
         "--env-file",
-        "D:\\codeGolang\\mcp_sqlserver\\.env",
+        "<path-to-project>\\.env",
         "mcp-sqlserver:local"
       ]
     }
@@ -253,7 +263,7 @@ During development you can run through Go:
     "sqlserver-dev": {
       "command": "go",
       "args": ["run", "./cmd"],
-      "cwd": "D:\\codeGolang\\mcp_sqlserver",
+      "cwd": "<path-to-project>",
       "env": {
         "SQL_SERVER_HOST": "localhost",
         "SQL_SERVER_USER": "sa",

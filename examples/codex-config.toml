@@ -1,5 +1,5 @@
 [mcp_servers.sqlserver]
-command = "D:\\codeGolang\\mcp_sqlserver\\mcp-sqlserver.exe"
+command = "<path-to-mcp-sqlserver.exe>"
 startup_timeout_sec = 10
 tool_timeout_sec = 60
 
@@ -23,7 +23,7 @@ args = [
   "--rm",
   "-i",
   "--env-file",
-  "D:\\codeGolang\\mcp_sqlserver\\.env",
+  "<path-to-project>\\.env",
   "mcp-sqlserver:local",
 ]
 startup_timeout_sec = 20

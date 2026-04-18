@@ -52,25 +52,33 @@ $assetName = "mcp-sqlserver-windows-amd64.zip"
 $release = Get-GitHubRelease -Repository $Repo -ReleaseVersion $Version
 $asset = Get-ReleaseAsset -Release $release -AssetName $assetName
 
-$workDir = Join-Path ([IO.Path]::GetTempPath()) ("mcp-sqlserver-release-" + [guid]::NewGuid().ToString("N"))
+$localAppData = $env:LOCALAPPDATA
+if ([string]::IsNullOrWhiteSpace($localAppData)) {
+    $localAppData = Join-Path $HOME "AppData\Local"
+}
+
+$installRoot = Join-Path $localAppData "mcp-sqlserver"
+$releaseDir = Join-Path (Join-Path $installRoot "releases") $release.tag_name
+$workDir = Join-Path $installRoot "downloads"
 $zipPath = Join-Path $workDir $assetName
-$extractDir = Join-Path $workDir "package"
 
 New-Item -ItemType Directory -Force -Path $workDir | Out-Null
+New-Item -ItemType Directory -Force -Path $releaseDir | Out-Null
 
 Write-Host ""
 Write-Host "Downloading MCP SQL Server $($release.tag_name)"
 Write-Host "Repository: $Repo"
 Write-Host "Asset: $assetName"
+Write-Host "Install directory: $releaseDir"
 Write-Host ""
 
 Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $zipPath -Headers @{
     "User-Agent" = "mcp-sqlserver-installer"
 }
 
-Expand-Archive -Path $zipPath -DestinationPath $extractDir -Force
+Expand-Archive -Path $zipPath -DestinationPath $releaseDir -Force
 
-$installer = Get-ChildItem -Path $extractDir -Recurse -Filter "install-windows.ps1" | Select-Object -First 1
+$installer = Get-ChildItem -Path $releaseDir -Recurse -Filter "install-windows.ps1" | Select-Object -First 1
 if ($null -eq $installer) {
     throw "Downloaded package does not contain install-windows.ps1"
 }
