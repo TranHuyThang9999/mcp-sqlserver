@@ -63,7 +63,7 @@ The installer asks for:
 ```bash
 git clone https://github.com/TranHuyThang9999/mcp-sqlserver.git
 cd mcp-sqlserver
-pwsh -File ./scripts/install.ps1
+./scripts/install.sh
 ```
 
 ### Manual Download
