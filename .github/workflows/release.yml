@@ -39,23 +39,19 @@ jobs:
           mkdir -p package/mcp-sqlserver-windows-amd64 package/mcp-sqlserver-linux-amd64 package/mcp-sqlserver-darwin-arm64 package/mcp-sqlserver-darwin-amd64
 
           cp dist/windows-amd64/mcp-sqlserver.exe package/mcp-sqlserver-windows-amd64/
-          cp scripts/install-windows.ps1 README.md .env.example package/mcp-sqlserver-windows-amd64/
-          cp -r examples package/mcp-sqlserver-windows-amd64/
+          cp scripts/install.ps1 README.md .env.example package/mcp-sqlserver-windows-amd64/
 
           cp dist/linux-amd64/mcp-sqlserver package/mcp-sqlserver-linux-amd64/
-          cp scripts/install-linux.sh README.md .env.example package/mcp-sqlserver-linux-amd64/
-          cp -r examples package/mcp-sqlserver-linux-amd64/
-          chmod +x package/mcp-sqlserver-linux-amd64/mcp-sqlserver package/mcp-sqlserver-linux-amd64/install-linux.sh
+          cp scripts/install.ps1 README.md .env.example package/mcp-sqlserver-linux-amd64/
+          chmod +x package/mcp-sqlserver-linux-amd64/mcp-sqlserver package/mcp-sqlserver-linux-amd64/install.ps1
 
           cp dist/darwin-arm64/mcp-sqlserver package/mcp-sqlserver-darwin-arm64/
-          cp scripts/install-linux.sh README.md .env.example package/mcp-sqlserver-darwin-arm64/
-          cp -r examples package/mcp-sqlserver-darwin-arm64/
-          chmod +x package/mcp-sqlserver-darwin-arm64/mcp-sqlserver package/mcp-sqlserver-darwin-arm64/install-linux.sh
+          cp scripts/install.ps1 README.md .env.example package/mcp-sqlserver-darwin-arm64/
+          chmod +x package/mcp-sqlserver-darwin-arm64/mcp-sqlserver package/mcp-sqlserver-darwin-arm64/install.ps1
 
           cp dist/darwin-amd64/mcp-sqlserver package/mcp-sqlserver-darwin-amd64/
-          cp scripts/install-linux.sh README.md .env.example package/mcp-sqlserver-darwin-amd64/
-          cp -r examples package/mcp-sqlserver-darwin-amd64/
-          chmod +x package/mcp-sqlserver-darwin-amd64/mcp-sqlserver package/mcp-sqlserver-darwin-amd64/install-linux.sh
+          cp scripts/install.ps1 README.md .env.example package/mcp-sqlserver-darwin-amd64/
+          chmod +x package/mcp-sqlserver-darwin-amd64/mcp-sqlserver package/mcp-sqlserver-darwin-amd64/install.ps1
 
       - name: Archive packages
         run: |
