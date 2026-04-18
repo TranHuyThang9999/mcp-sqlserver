@@ -11,6 +11,9 @@ MCP server written in Go for connecting LLM tools to Microsoft SQL Server over s
 - Table schema inspection: columns, primary keys, foreign keys, indexes, triggers.
 - Stored procedure discovery, definition lookup, and execution.
 - Trigger and object definition lookup.
+- **RAG Knowledge Base**: Persistent schema memory using SQLite (no external dependencies).
+- **Auto-learn**: Automatically learns schema on `describe_table` calls.
+- **Semantic search**: Query learned schema with `rag_query`.
 - Designed for stdio MCP clients such as Codex, IDE extensions, and other LLM tools.
 
 ## Configuration
@@ -35,6 +38,8 @@ Environment variables:
 | `MCP_SQLSERVER_ALLOW_SCHEMA_CHANGES` | `false` | Allow `CREATE`, `ALTER`, `DROP`, `TRUNCATE`. |
 | `MCP_SQLSERVER_ALLOW_DANGEROUS_SQL` | `false` | Allow blocked capabilities such as `xp_cmdshell`. |
 | `MCP_SQLSERVER_ALLOW_PROCEDURE_CALLS` | `true` | Allow stored procedure execution. |
+| `MCP_RAG_ENABLED` | `true` | Enable RAG knowledge base. |
+| `MCP_RAG_AUTO_LEARN` | `true` | Auto-learn schema on describe_table. |
 
 ## Quick Install
 
@@ -266,18 +271,26 @@ During development you can run through Go:
 
 ## Tool list
 
-- `health_check`
-- `sql_select`
-- `sql_execute`
-- `list_databases`
-- `list_schemas`
-- `list_tables`
-- `describe_table`
-- `list_views`
-- `get_object_definition`
-- `list_procedures`
-- `execute_procedure`
-- `list_triggers`
+### SQL Tools
+- `health_check` - Check SQL Server connectivity.
+- `sql_select` - Run read-only SELECT/WITH queries.
+- `sql_execute` - Run INSERT, UPDATE, DELETE, MERGE.
+- `list_databases` - List databases.
+- `list_schemas` - List schemas.
+- `list_tables` - List tables and views.
+- `describe_table` - Get table schema (columns, PKs, FKs, indexes, triggers).
+- `list_views` - List views.
+- `get_object_definition` - Get SP/view/trigger definition.
+- `list_procedures` - List stored procedures.
+- `execute_procedure` - Execute a stored procedure.
+- `list_triggers` - List triggers.
+
+### RAG Knowledge Tools
+- `rag_query` - Search learned schema knowledge.
+- `rag_learn_table` - Manually learn a table schema.
+- `rag_stats` - Get knowledge base statistics.
+- `rag_list_tables` - List all learned tables.
+- `rag_list_relations` - List all learned relationships.
 
 ## Notes
 
