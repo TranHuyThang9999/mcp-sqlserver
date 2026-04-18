@@ -1,0 +1,30 @@
+[mcp_servers.sqlserver]
+command = "D:\\codeGolang\\mcp_sqlserver\\mcp-sqlserver.exe"
+startup_timeout_sec = 10
+tool_timeout_sec = 60
+
+[mcp_servers.sqlserver.env]
+SQL_SERVER_HOST = "localhost"
+SQL_SERVER_PORT = "1433"
+SQL_SERVER_USER = "sa"
+SQL_SERVER_PASSWORD = "your_password"
+SQL_SERVER_DATABASE = "your_database"
+SQL_SERVER_ENCRYPT = "disable"
+SQL_SERVER_TRUST_CERT = "true"
+MCP_SQLSERVER_MAX_ROWS = "500"
+MCP_SQLSERVER_ALLOW_SCHEMA_CHANGES = "false"
+MCP_SQLSERVER_ALLOW_DANGEROUS_SQL = "false"
+MCP_SQLSERVER_ALLOW_PROCEDURE_CALLS = "true"
+
+[mcp_servers.sqlserver_docker]
+command = "docker"
+args = [
+  "run",
+  "--rm",
+  "-i",
+  "--env-file",
+  "D:\\codeGolang\\mcp_sqlserver\\.env",
+  "mcp-sqlserver:local",
+]
+startup_timeout_sec = 20
+tool_timeout_sec = 60

@@ -1,0 +1,10 @@
+services:
+  mcp-sqlserver:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: mcp-sqlserver:local
+    env_file:
+      - .env
+    stdin_open: true
+    tty: false

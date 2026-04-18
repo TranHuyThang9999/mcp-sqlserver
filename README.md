@@ -1,0 +1,226 @@
+# MCP SQL Server
+
+MCP server written in Go for connecting LLM tools to Microsoft SQL Server over stdio.
+
+## Features
+
+- Read-only queries with `sql_select`.
+- Write statements with `sql_execute` for `INSERT`, `UPDATE`, `DELETE`, and `MERGE`.
+- Optional schema changes with `CREATE`, `ALTER`, `DROP`, and `TRUNCATE`.
+- Database discovery: databases, schemas, tables, views.
+- Table schema inspection: columns, primary keys, foreign keys, indexes, triggers.
+- Stored procedure discovery, definition lookup, and execution.
+- Trigger and object definition lookup.
+- Designed for stdio MCP clients such as Codex, IDE extensions, and other LLM tools.
+
+## Configuration
+
+Environment variables:
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `SQL_SERVER_CONNECTION_STRING` | empty | Full sqlserver connection string. Overrides host/user settings. |
+| `SQL_SERVER_HOST` | `localhost` | SQL Server host. |
+| `SQL_SERVER_PORT` | `1433` | SQL Server port. |
+| `SQL_SERVER_USER` | `sa` | SQL Server login. |
+| `SQL_SERVER_PASSWORD` | empty | SQL Server password. |
+| `SQL_SERVER_DATABASE` | `master` | Initial database. |
+| `SQL_SERVER_ENCRYPT` | `disable` | Driver encryption mode. |
+| `SQL_SERVER_TRUST_CERT` | `true` | Trust server certificate. |
+| `SQL_SERVER_CONNECT_TIMEOUT` | `10s` | Connection timeout. |
+| `SQL_SERVER_QUERY_TIMEOUT` | `60s` | Reserved for future per-query timeout handling. |
+| `SQL_SERVER_MAX_OPEN_CONNS` | `10` | Max open DB connections. |
+| `SQL_SERVER_MAX_IDLE_CONNS` | `5` | Max idle DB connections. |
+| `MCP_SQLSERVER_MAX_ROWS` | `500` | Maximum rows returned by `sql_select`. |
+| `MCP_SQLSERVER_ALLOW_SCHEMA_CHANGES` | `false` | Allow `CREATE`, `ALTER`, `DROP`, `TRUNCATE`. |
+| `MCP_SQLSERVER_ALLOW_DANGEROUS_SQL` | `false` | Allow blocked capabilities such as `xp_cmdshell`. |
+| `MCP_SQLSERVER_ALLOW_PROCEDURE_CALLS` | `true` | Allow stored procedure execution. |
+
+## Run
+
+```powershell
+$env:SQL_SERVER_HOST = "localhost"
+$env:SQL_SERVER_USER = "sa"
+$env:SQL_SERVER_PASSWORD = "your_password"
+$env:SQL_SERVER_DATABASE = "your_database"
+go run ./cmd
+```
+
+## Build
+
+```powershell
+go build -o mcp-sqlserver.exe ./cmd
+```
+
+## Docker
+
+Create a local `.env` file:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Edit `.env`, then build the image:
+
+```powershell
+docker build -t mcp-sqlserver:local .
+```
+
+Run as a stdio MCP process:
+
+```powershell
+docker run --rm -i --env-file .env mcp-sqlserver:local
+```
+
+With Docker Compose:
+
+```powershell
+docker compose run --rm mcp-sqlserver
+```
+
+When SQL Server runs on your Windows host, use `SQL_SERVER_HOST=host.docker.internal` in `.env`.
+
+## Codex MCP config
+
+Codex does not use the `mcpServers` JSON format. Codex reads MCP servers from `~/.codex/config.toml`, and you can manage the same config with `codex mcp add` / `codex mcp list`.
+
+Use this TOML in `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.sqlserver]
+command = "D:\\codeGolang\\mcp_sqlserver\\mcp-sqlserver.exe"
+startup_timeout_sec = 10
+tool_timeout_sec = 60
+
+[mcp_servers.sqlserver.env]
+SQL_SERVER_HOST = "localhost"
+SQL_SERVER_PORT = "1433"
+SQL_SERVER_USER = "sa"
+SQL_SERVER_PASSWORD = "your_password"
+SQL_SERVER_DATABASE = "your_database"
+SQL_SERVER_ENCRYPT = "disable"
+SQL_SERVER_TRUST_CERT = "true"
+MCP_SQLSERVER_MAX_ROWS = "500"
+MCP_SQLSERVER_ALLOW_SCHEMA_CHANGES = "false"
+MCP_SQLSERVER_ALLOW_DANGEROUS_SQL = "false"
+MCP_SQLSERVER_ALLOW_PROCEDURE_CALLS = "true"
+```
+
+Docker-based Codex config:
+
+```toml
+[mcp_servers.sqlserver_docker]
+command = "docker"
+args = [
+  "run",
+  "--rm",
+  "-i",
+  "--env-file",
+  "D:\\codeGolang\\mcp_sqlserver\\.env",
+  "mcp-sqlserver:local",
+]
+startup_timeout_sec = 20
+tool_timeout_sec = 60
+```
+
+You can also add the executable server using the Codex CLI:
+
+```powershell
+codex mcp add sqlserver `
+  --env SQL_SERVER_HOST=localhost `
+  --env SQL_SERVER_PORT=1433 `
+  --env SQL_SERVER_USER=sa `
+  --env SQL_SERVER_PASSWORD=your_password `
+  --env SQL_SERVER_DATABASE=your_database `
+  -- D:\codeGolang\mcp_sqlserver\mcp-sqlserver.exe
+```
+
+Verify:
+
+```powershell
+codex mcp list
+```
+
+See `examples/codex-config.toml` for a complete Codex example.
+
+## Cursor / VS Code MCP config
+
+Some IDE clients use JSON instead of Codex TOML. For those clients, see `examples/cursor-mcp.json`.
+
+Use the built executable as a stdio MCP server:
+
+```json
+{
+  "mcpServers": {
+    "sqlserver": {
+      "command": "D:\\codeGolang\\mcp_sqlserver\\mcp-sqlserver.exe",
+      "env": {
+        "SQL_SERVER_HOST": "localhost",
+        "SQL_SERVER_USER": "sa",
+        "SQL_SERVER_PASSWORD": "your_password",
+        "SQL_SERVER_DATABASE": "your_database",
+        "MCP_SQLSERVER_MAX_ROWS": "500"
+      }
+    }
+  }
+}
+```
+
+Docker-based MCP config:
+
+```json
+{
+  "mcpServers": {
+    "sqlserver-docker": {
+      "command": "docker",
+      "args": [
+        "run",
+        "--rm",
+        "-i",
+        "--env-file",
+        "D:\\codeGolang\\mcp_sqlserver\\.env",
+        "mcp-sqlserver:local"
+      ]
+    }
+  }
+}
+```
+
+During development you can run through Go:
+
+```json
+{
+  "mcpServers": {
+    "sqlserver-dev": {
+      "command": "go",
+      "args": ["run", "./cmd"],
+      "cwd": "D:\\codeGolang\\mcp_sqlserver",
+      "env": {
+        "SQL_SERVER_HOST": "localhost",
+        "SQL_SERVER_USER": "sa",
+        "SQL_SERVER_PASSWORD": "your_password",
+        "SQL_SERVER_DATABASE": "your_database"
+      }
+    }
+  }
+}
+```
+
+## Tool list
+
+- `health_check`
+- `sql_select`
+- `sql_execute`
+- `list_databases`
+- `list_schemas`
+- `list_tables`
+- `describe_table`
+- `list_views`
+- `get_object_definition`
+- `list_procedures`
+- `execute_procedure`
+- `list_triggers`
+
+## Notes
+
+Use a SQL Server login with the least permissions needed for your workflow. For agent usage, prefer a read-only account unless you explicitly need writes.
