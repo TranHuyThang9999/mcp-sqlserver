@@ -4,7 +4,11 @@ set -euo pipefail
 server_name="${SERVER_NAME:-sqlserver}"
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 root_dir="$(cd "$script_dir/.." && pwd)"
-binary="$root_dir/mcp-sqlserver"
+binary="$script_dir/mcp-sqlserver"
+
+if [[ ! -f "$binary" ]]; then
+  binary="$root_dir/mcp-sqlserver"
+fi
 
 if [[ ! -f "$binary" ]]; then
   echo "Cannot find $binary"

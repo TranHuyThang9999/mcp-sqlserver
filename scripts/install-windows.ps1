@@ -176,15 +176,21 @@ function New-ServerConfig {
     return $config
 }
 
-$root = Split-Path -Parent $PSScriptRoot
-$binary = Join-Path $root "mcp-sqlserver.exe"
+$binary = Join-Path $PSScriptRoot "mcp-sqlserver.exe"
 if (-not (Test-Path $binary)) {
-    $fallback = Join-Path $root "mcp-sqlserver-test.exe"
+    $root = Split-Path -Parent $PSScriptRoot
+    $fallback = Join-Path $root "mcp-sqlserver.exe"
     if (Test-Path $fallback) {
         $binary = $fallback
     }
     else {
-        throw "Cannot find mcp-sqlserver.exe beside this installer. Download the release zip that includes the Windows binary."
+        $testFallback = Join-Path $root "mcp-sqlserver-test.exe"
+        if (Test-Path $testFallback) {
+            $binary = $testFallback
+        }
+        else {
+            throw "Cannot find mcp-sqlserver.exe beside this installer. Download the release zip that includes the Windows binary."
+        }
     }
 }
 
