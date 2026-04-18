@@ -36,6 +36,44 @@ Environment variables:
 | `MCP_SQLSERVER_ALLOW_DANGEROUS_SQL` | `false` | Allow blocked capabilities such as `xp_cmdshell`. |
 | `MCP_SQLSERVER_ALLOW_PROCEDURE_CALLS` | `true` | Allow stored procedure execution. |
 
+## Install without Go or Docker
+
+For non-developer users, distribute a GitHub Release package instead of source code. The release workflow builds ready-to-run binaries and archives:
+
+- `mcp-sqlserver-windows-amd64.zip`
+- `mcp-sqlserver-linux-amd64.tar.gz`
+- `mcp-sqlserver-darwin-arm64.tar.gz`
+- `mcp-sqlserver-darwin-amd64.tar.gz`
+
+Windows:
+
+```powershell
+Expand-Archive .\mcp-sqlserver-windows-amd64.zip
+cd .\mcp-sqlserver-windows-amd64\mcp-sqlserver-windows-amd64
+powershell -ExecutionPolicy Bypass -File .\install-windows.ps1
+```
+
+Ubuntu:
+
+```bash
+tar -xzf mcp-sqlserver-linux-amd64.tar.gz
+cd mcp-sqlserver-linux-amd64
+./install-linux.sh
+```
+
+The installer asks only for SQL Server host, port, username, password, and the MCP client to configure. Database defaults to `master`, `sql_select` returns up to `500` rows, schema changes and dangerous SQL are disabled, and stored procedure calls are enabled. It can configure Codex, Gemini CLI, Claude Code, Cursor-style MCP JSON, or a project `.mcp.json`.
+
+Claude Desktop local MCP uses `claude_desktop_config.json` on Windows and macOS. On Ubuntu, use Claude Code with `claude mcp add-json`; the Linux installer does this automatically when the `claude` CLI is available.
+
+To publish a release, push a tag:
+
+```powershell
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+GitHub Actions will build, test, archive, checksum, and upload the release assets.
+
 ## Run
 
 ```powershell
