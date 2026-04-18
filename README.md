@@ -45,7 +45,7 @@ Run these commands in PowerShell:
 ```powershell
 git clone https://github.com/TranHuyThang9999/mcp-sqlserver.git
 cd mcp-sqlserver
-powershell -ExecutionPolicy Bypass -File .\scripts\install-release-windows.ps1
+.\scripts\install.ps1
 ```
 
 This downloads the latest Windows release package and starts the installer.
@@ -58,19 +58,12 @@ The installer asks for:
 - SQL Server password
 - MCP client to configure
 
-To install a specific version:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\install-release-windows.ps1 -Version v0.1.0
-```
-
-### Linux
+### Linux/macOS
 
 ```bash
-curl -L -o mcp-sqlserver-linux-amd64.tar.gz https://github.com/TranHuyThang9999/mcp-sqlserver/releases/latest/download/mcp-sqlserver-linux-amd64.tar.gz
-tar -xzf mcp-sqlserver-linux-amd64.tar.gz
-cd mcp-sqlserver-linux-amd64
-./install-linux.sh
+git clone https://github.com/TranHuyThang9999/mcp-sqlserver.git
+cd mcp-sqlserver
+pwsh -File ./scripts/install.ps1
 ```
 
 ### Manual Download
@@ -210,13 +203,7 @@ Verify:
 codex mcp list
 ```
 
-See `examples/codex-config.toml` for a complete Codex example.
-
-## Cursor / VS Code MCP config
-
-The installer can write this config for you. Use this section only when you want to configure an MCP JSON file manually.
-
-Some IDE clients use JSON instead of Codex TOML. For those clients, see `examples/cursor-mcp.json`.
+The installer will create the config automatically.
 
 Use the built executable as a stdio MCP server:
 
