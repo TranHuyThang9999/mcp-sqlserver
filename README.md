@@ -45,7 +45,7 @@ Run these commands in PowerShell:
 ```powershell
 git clone https://github.com/TranHuyThang9999/mcp-sqlserver.git
 cd mcp-sqlserver
-.\scripts\install.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\install.ps1
 ```
 
 This downloads the latest Windows release package and starts the installer.
