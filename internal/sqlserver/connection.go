@@ -11,21 +11,26 @@ import (
 	_ "github.com/microsoft/go-mssqldb"
 )
 
+type DB interface {
+	*sql.DB
+	Close() error
+}
+
 func Open(ctx context.Context, cfg config.DatabaseConfig) (*sql.DB, error) {
 	connString := cfg.ConnectionString
 	if connString == "" {
-		query := url.Values{}
-		query.Set("database", cfg.Database)
-		query.Set("connection timeout", fmt.Sprintf("%.0f", cfg.ConnectionTimeout.Seconds()))
-		query.Set("app name", cfg.ApplicationName)
-		query.Set("encrypt", cfg.Encrypt)
-		query.Set("TrustServerCertificate", fmt.Sprintf("%t", cfg.TrustServerCert))
+		q := url.Values{}
+		q.Set("database", cfg.Database)
+		q.Set("connection timeout", fmt.Sprintf("%.0f", cfg.ConnectionTimeout.Seconds()))
+		q.Set("app name", cfg.ApplicationName)
+		q.Set("encrypt", cfg.Encrypt)
+		q.Set("TrustServerCertificate", fmt.Sprintf("%t", cfg.TrustServerCert))
 
 		u := &url.URL{
 			Scheme:   "sqlserver",
 			User:     url.UserPassword(cfg.User, cfg.Password),
 			Host:     cfg.Host + ":" + cfg.Port,
-			RawQuery: query.Encode(),
+			RawQuery: q.Encode(),
 		}
 		connString = u.String()
 	}
@@ -37,9 +42,9 @@ func Open(ctx context.Context, cfg config.DatabaseConfig) (*sql.DB, error) {
 	db.SetMaxOpenConns(cfg.MaxOpenConnections)
 	db.SetMaxIdleConns(cfg.MaxIdleConnections)
 
-	pingCtx, cancel := context.WithTimeout(ctx, cfg.ConnectionTimeout)
+	ctx, cancel := context.WithTimeout(ctx, cfg.ConnectionTimeout)
 	defer cancel()
-	if err := db.PingContext(pingCtx); err != nil {
+	if err := db.PingContext(ctx); err != nil {
 		_ = db.Close()
 		return nil, err
 	}

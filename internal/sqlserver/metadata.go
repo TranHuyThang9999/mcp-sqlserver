@@ -15,9 +15,9 @@ ORDER BY name`)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
-	var out []DatabaseInfo
+	out := make([]DatabaseInfo, 0, 64)
 	for rows.Next() {
 		var item DatabaseInfo
 		if err := rows.Scan(&item.Name, &item.State, &item.RecoveryModel, &item.Compatibility); err != nil {
@@ -36,9 +36,9 @@ ORDER BY s.name`)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
-	var out []SchemaInfo
+	out := make([]SchemaInfo, 0, 64)
 	for rows.Next() {
 		var item SchemaInfo
 		if err := rows.Scan(&item.Name, &item.Owner); err != nil {
@@ -63,9 +63,9 @@ ORDER BY sch.name, obj.name`
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
-	var out []TableInfo
+	out := make([]TableInfo, 0, 128)
 	for rows.Next() {
 		var item TableInfo
 		if err := rows.Scan(&item.Schema, &item.Name, &item.Type, &item.RowCount); err != nil {
@@ -82,23 +82,7 @@ func (s *Service) DescribeTable(ctx context.Context, schema, table string) (Tabl
 		return TableSchema{}, err
 	}
 
-	columns, err := s.tableColumns(ctx, objectID)
-	if err != nil {
-		return TableSchema{}, err
-	}
-	primaryKeys, err := s.primaryKeys(ctx, objectID)
-	if err != nil {
-		return TableSchema{}, err
-	}
-	foreignKeys, err := s.foreignKeys(ctx, objectID)
-	if err != nil {
-		return TableSchema{}, err
-	}
-	indexes, err := s.indexes(ctx, objectID)
-	if err != nil {
-		return TableSchema{}, err
-	}
-	triggers, err := s.triggersForTable(ctx, objectID)
+	results, err := s.describeTableDetails(ctx, objectID)
 	if err != nil {
 		return TableSchema{}, err
 	}
@@ -106,11 +90,50 @@ func (s *Service) DescribeTable(ctx context.Context, schema, table string) (Tabl
 	return TableSchema{
 		Schema:      schema,
 		Name:        table,
-		Columns:     columns,
-		PrimaryKeys: primaryKeys,
-		ForeignKeys: foreignKeys,
-		Indexes:     indexes,
-		Triggers:    triggers,
+		Columns:     results.columns,
+		PrimaryKeys: results.primaryKeys,
+		ForeignKeys: results.foreignKeys,
+		Indexes:     results.indexes,
+		Triggers:    results.triggers,
+	}, nil
+}
+
+type describeResults struct {
+	columns     []ColumnInfo
+	primaryKeys []KeyInfo
+	foreignKeys []KeyInfo
+	indexes    []IndexInfo
+	triggers   []ObjectInfo
+}
+
+func (s *Service) describeTableDetails(ctx context.Context, objectID int) (describeResults, error) {
+	var r describeResults
+	ec := make(chan error, 5)
+
+	go func() { _, err := s.tableColumns(ctx, objectID); ec <- err }()
+	go func() { _, err := s.primaryKeys(ctx, objectID); ec <- err }()
+	go func() { _, err := s.foreignKeys(ctx, objectID); ec <- err }()
+	go func() { _, err := s.indexes(ctx, objectID); ec <- err }()
+	go func() { _, err := s.triggersForTable(ctx, objectID); ec <- err }()
+
+	for i := 0; i < 5; i++ {
+		if err := <-ec; err != nil {
+			return r, err
+		}
+	}
+
+	cols, _ := s.tableColumns(ctx, objectID)
+	pks, _ := s.primaryKeys(ctx, objectID)
+	fks, _ := s.foreignKeys(ctx, objectID)
+	idx, _ := s.indexes(ctx, objectID)
+	trg, _ := s.triggersForTable(ctx, objectID)
+
+	return describeResults{
+		columns:     cols,
+		primaryKeys: pks,
+		foreignKeys: fks,
+		indexes:    idx,
+		triggers:   trg,
 	}, nil
 }
 
@@ -139,9 +162,9 @@ ORDER BY schema_name, tr.name`, strings.TrimSpace(schema))
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
-	var out []ObjectInfo
+	out := make([]ObjectInfo, 0, 64)
 	for rows.Next() {
 		var item ObjectInfo
 		if err := rows.Scan(&item.Schema, &item.Name, &item.Type, &item.CreateDate, &item.ModifyDate, &item.Parent, &item.Disabled); err != nil {
@@ -189,9 +212,9 @@ ORDER BY s.name, o.name`, objectType, strings.TrimSpace(schema))
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
-	var out []ObjectInfo
+	out := make([]ObjectInfo, 0, 128)
 	for rows.Next() {
 		var item ObjectInfo
 		if err := rows.Scan(&item.Schema, &item.Name, &item.Type, &item.CreateDate, &item.ModifyDate); err != nil {
@@ -214,9 +237,9 @@ ORDER BY c.column_id`, objectID)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
-	var out []ColumnInfo
+	out := make([]ColumnInfo, 0, 64)
 	for rows.Next() {
 		var item ColumnInfo
 		if err := rows.Scan(&item.Name, &item.Type, &item.MaxLength, &item.Precision, &item.Scale, &item.Nullable, &item.Identity, &item.Computed, &item.DefaultValue, &item.CollationName); err != nil {
@@ -238,9 +261,9 @@ GROUP BY kc.name`, objectID)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
-	var out []KeyInfo
+	out := make([]KeyInfo, 0, 4)
 	for rows.Next() {
 		var item KeyInfo
 		var columns string
@@ -267,9 +290,9 @@ GROUP BY fk.name, fk.referenced_object_id`, objectID)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
-	var out []KeyInfo
+	out := make([]KeyInfo, 0, 8)
 	for rows.Next() {
 		var item KeyInfo
 		var columns string
@@ -298,9 +321,9 @@ ORDER BY i.name`, objectID)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
-	var out []IndexInfo
+	out := make([]IndexInfo, 0, 8)
 	for rows.Next() {
 		var item IndexInfo
 		var columns string
@@ -325,9 +348,9 @@ ORDER BY tr.name`, objectID)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
-	var out []ObjectInfo
+	out := make([]ObjectInfo, 0, 4)
 	for rows.Next() {
 		var item ObjectInfo
 		if err := rows.Scan(&item.Schema, &item.Name, &item.Type, &item.CreateDate, &item.ModifyDate, &item.Disabled); err != nil {

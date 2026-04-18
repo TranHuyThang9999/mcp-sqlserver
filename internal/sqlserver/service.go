@@ -14,7 +14,8 @@ type Service struct {
 }
 
 func NewService(db *sql.DB, cfg config.ServerConfig) *Service {
-	return &Service{db: db, cfg: cfg}
+	s := &Service{db: db, cfg: cfg}
+	return s
 }
 
 func (s *Service) Health(ctx context.Context) (map[string]any, error) {
@@ -61,20 +62,22 @@ func (s *Service) query(ctx context.Context, sqlText string, maxRows int, args .
 	if err != nil {
 		return QueryResult{}, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	columns, err := rows.Columns()
 	if err != nil {
 		return QueryResult{}, err
 	}
 
-	var out []map[string]any
+	colCount := len(columns)
+	if maxRows > 0 && maxRows < 100 {
+		maxRows = 100
+	}
+	out := make([]map[string]any, 0, maxRows)
+	idx := 0
 	for rows.Next() {
-		if maxRows > 0 && len(out) >= maxRows {
-			break
-		}
-		values := make([]any, len(columns))
-		pointers := make([]any, len(columns))
+		values := make([]any, colCount)
+		pointers := make([]any, colCount)
 		for i := range values {
 			pointers[i] = &values[i]
 		}
@@ -82,11 +85,13 @@ func (s *Service) query(ctx context.Context, sqlText string, maxRows int, args .
 			return QueryResult{}, err
 		}
 
-		row := make(map[string]any, len(columns))
+		row := make(map[string]any, colCount+1)
+		row["_index"] = idx
 		for i, column := range columns {
 			row[column] = normalizeValue(values[i])
 		}
 		out = append(out, row)
+		idx++
 	}
 	if err := rows.Err(); err != nil {
 		return QueryResult{}, err
