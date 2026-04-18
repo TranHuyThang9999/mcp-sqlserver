@@ -87,7 +87,7 @@ func (s *Service) DescribeTable(ctx context.Context, schema, table string) (Tabl
 		return TableSchema{}, err
 	}
 
-	return TableSchema{
+	ts := TableSchema{
 		Schema:      schema,
 		Name:        table,
 		Columns:     results.columns,
@@ -95,15 +95,37 @@ func (s *Service) DescribeTable(ctx context.Context, schema, table string) (Tabl
 		ForeignKeys: results.foreignKeys,
 		Indexes:     results.indexes,
 		Triggers:    results.triggers,
-	}, nil
+	}
+
+	if s.Knowledge != nil {
+		data := map[string]any{
+			"columns":     results.columns,
+			"primaryKeys": results.primaryKeys,
+			"foreignKeys": results.foreignKeys,
+			"indexes":     results.indexes,
+			"triggers":    results.triggers,
+		}
+		_ = s.Knowledge.LearnTable(ctx, schema, table, data)
+
+		fkData := make([]map[string]any, len(results.foreignKeys))
+		for i, fk := range results.foreignKeys {
+			fkData[i] = map[string]any{
+				"columns":    fk.Columns,
+				"references": fk.References,
+			}
+		}
+		_ = s.Knowledge.LearnRelations(ctx, schema, table, fkData)
+	}
+
+	return ts, nil
 }
 
 type describeResults struct {
 	columns     []ColumnInfo
 	primaryKeys []KeyInfo
 	foreignKeys []KeyInfo
-	indexes    []IndexInfo
-	triggers   []ObjectInfo
+	indexes     []IndexInfo
+	triggers    []ObjectInfo
 }
 
 func (s *Service) describeTableDetails(ctx context.Context, objectID int) (describeResults, error) {
@@ -132,8 +154,8 @@ func (s *Service) describeTableDetails(ctx context.Context, objectID int) (descr
 		columns:     cols,
 		primaryKeys: pks,
 		foreignKeys: fks,
-		indexes:    idx,
-		triggers:   trg,
+		indexes:     idx,
+		triggers:    trg,
 	}, nil
 }
 

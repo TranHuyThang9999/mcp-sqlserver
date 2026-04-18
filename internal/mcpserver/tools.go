@@ -5,17 +5,19 @@ import (
 	"fmt"
 	"log"
 
+	"mcp_sqlserver/internal/rag"
 	"mcp_sqlserver/internal/sqlserver"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 type handlers struct {
-	service *sqlserver.Service
+	service   *sqlserver.Service
+	knowledge *rag.Store
 }
 
-func RegisterTools(server *mcp.Server, service *sqlserver.Service) {
-	h := &handlers{service: service}
+func RegisterTools(server *mcp.Server, service *sqlserver.Service, knowledge *rag.Store) {
+	h := &handlers{service: service, knowledge: knowledge}
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "health_check",
@@ -76,6 +78,33 @@ func RegisterTools(server *mcp.Server, service *sqlserver.Service) {
 		Name:        "list_triggers",
 		Description: "List database and table triggers.",
 	}, h.listTriggers)
+
+	if h.knowledge != nil {
+		mcp.AddTool(server, &mcp.Tool{
+			Name:        "rag_query",
+			Description: "Query the persistent knowledge base for schema/table information learned from previous queries.",
+		}, h.ragQuery)
+
+		mcp.AddTool(server, &mcp.Tool{
+			Name:        "rag_learn_table",
+			Description: "Learn and store table schema in the knowledge base.",
+		}, h.ragLearnTable)
+
+		mcp.AddTool(server, &mcp.Tool{
+			Name:        "rag_stats",
+			Description: "Get knowledge base statistics (tables, relations, queries learned).",
+		}, h.ragStats)
+
+		mcp.AddTool(server, &mcp.Tool{
+			Name:        "rag_list_tables",
+			Description: "List all tables stored in knowledge base.",
+		}, h.ragListTables)
+
+		mcp.AddTool(server, &mcp.Tool{
+			Name:        "rag_list_relations",
+			Description: "List all relationships stored in knowledge base.",
+		}, h.ragListRelations)
+	}
 }
 
 func toolError(err error) *mcp.CallToolResult {
@@ -189,4 +218,82 @@ func (h *handlers) executeProcedure(ctx context.Context, req *mcp.CallToolReques
 		return toolError(err), QueryOutput{}, nil
 	}
 	return nil, QueryOutput{Result: result}, nil
+}
+
+func (h *handlers) ragQuery(ctx context.Context, req *mcp.CallToolRequest, input RAGQueryInput) (*mcp.CallToolResult, RAGSearchOutput, error) {
+	if h.knowledge == nil {
+		return toolError(fmt.Errorf("vector store not initialized")), RAGSearchOutput{}, nil
+	}
+	results, err := h.knowledge.Search(ctx, input.Query, 10)
+	if err != nil {
+		return toolError(err), RAGSearchOutput{}, nil
+	}
+	out := make([]RAGSearchResult, len(results))
+	for i, r := range results {
+		out[i] = RAGSearchResult{Schema: r.Schema, Name: r.Name, Type: r.Type, Text: r.Text, Score: r.Score}
+	}
+	return nil, RAGSearchOutput{Results: out}, nil
+}
+
+func (h *handlers) ragLearnTable(ctx context.Context, req *mcp.CallToolRequest, input ObjectInput) (*mcp.CallToolResult, RAGStatsOutput, error) {
+	if h.knowledge == nil {
+		return toolError(fmt.Errorf("vector store not initialized")), RAGStatsOutput{}, nil
+	}
+	if input.Schema == "" || input.Name == "" {
+		return toolError(fmt.Errorf("schema and name are required")), RAGStatsOutput{}, nil
+	}
+	ts, err := h.service.DescribeTable(ctx, input.Schema, input.Name)
+	if err != nil {
+		return toolError(err), RAGStatsOutput{}, nil
+	}
+	data := map[string]any{"columns": ts.Columns, "primaryKeys": ts.PrimaryKeys, "foreignKeys": ts.ForeignKeys, "indexes": ts.Indexes}
+	_ = h.knowledge.LearnTable(ctx, input.Schema, input.Name, data)
+	fks := make([]map[string]any, len(ts.ForeignKeys))
+	for i, fk := range ts.ForeignKeys {
+		fks[i] = map[string]any{"columns": fk.Columns, "references": fk.References}
+	}
+	_ = h.knowledge.LearnRelations(ctx, input.Schema, input.Name, fks)
+	stats, _ := h.knowledge.Stats(ctx)
+	return nil, RAGStatsOutput{Stats: stats, Status: "learned"}, nil
+}
+
+func (h *handlers) ragStats(ctx context.Context, req *mcp.CallToolRequest, input EmptyInput) (*mcp.CallToolResult, RAGStatsOutput, error) {
+	if h.knowledge == nil {
+		return toolError(fmt.Errorf("vector store not initialized")), RAGStatsOutput{}, nil
+	}
+	stats, err := h.knowledge.Stats(ctx)
+	if err != nil {
+		return toolError(err), RAGStatsOutput{}, nil
+	}
+	return nil, RAGStatsOutput{Stats: stats, Status: "ok"}, nil
+}
+
+func (h *handlers) ragListTables(ctx context.Context, req *mcp.CallToolRequest, input EmptyInput) (*mcp.CallToolResult, RAGTablesOutput, error) {
+	if h.knowledge == nil {
+		return toolError(fmt.Errorf("vector store not initialized")), RAGTablesOutput{}, nil
+	}
+	results, err := h.knowledge.GetAllTables(ctx)
+	if err != nil {
+		return toolError(err), RAGTablesOutput{}, nil
+	}
+	tables := make([]RAGTableInfo, len(results))
+	for i, r := range results {
+		tables[i] = RAGTableInfo{Schema: r.Schema, Name: r.Name, LastLearned: r.LastLearned}
+	}
+	return nil, RAGTablesOutput{Tables: tables}, nil
+}
+
+func (h *handlers) ragListRelations(ctx context.Context, req *mcp.CallToolRequest, input EmptyInput) (*mcp.CallToolResult, RAGRelationsOutput, error) {
+	if h.knowledge == nil {
+		return toolError(fmt.Errorf("vector store not initialized")), RAGRelationsOutput{}, nil
+	}
+	results, err := h.knowledge.GetAllRelations(ctx)
+	if err != nil {
+		return toolError(err), RAGRelationsOutput{}, nil
+	}
+	relations := make([]RAGRelationInfo, len(results))
+	for i, r := range results {
+		relations[i] = RAGRelationInfo{FromSchema: r.Schema, FromTable: r.Name, FromColumn: "", ToSchema: "", ToTable: "", ToColumn: "", RelationType: r.Type}
+	}
+	return nil, RAGRelationsOutput{Relations: relations}, nil
 }

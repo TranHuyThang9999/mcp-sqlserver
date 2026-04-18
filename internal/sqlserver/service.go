@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"mcp_sqlserver/internal/config"
+	"mcp_sqlserver/internal/rag"
 )
 
 // Service provides methods for querying and executing SQL against SQL Server.
@@ -15,18 +16,13 @@ import (
 //
 // The type is safe for concurrent use by multiple goroutines.
 type Service struct {
-	db  *sql.DB
-	cfg config.ServerConfig
+	db        *sql.DB
+	cfg       config.ServerConfig
+	Knowledge *rag.Store
 }
 
-// NewService creates a new Service instance.
-//
-//	db is the SQL Server database connection.
-//	cfg is the server configuration with query limits and permissions.
-//
-// Returns a new Service configured with the given parameters.
-func NewService(db *sql.DB, cfg config.ServerConfig) *Service {
-	s := &Service{db: db, cfg: cfg}
+func NewService(db *sql.DB, cfg config.ServerConfig, knowledge *rag.Store) *Service {
+	s := &Service{db: db, cfg: cfg, Knowledge: knowledge}
 	return s
 }
 
@@ -86,7 +82,7 @@ func (s *Service) Execute(ctx context.Context, sqlText string) (ExecuteResult, e
 	rowsAffected, _ := result.RowsAffected()
 	return ExecuteResult{
 		RowsAffected: rowsAffected,
-		Message:    "statement executed",
+		Message:      "statement executed",
 	}, nil
 }
 

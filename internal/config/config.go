@@ -25,6 +25,12 @@ import (
 type Config struct {
 	Database DatabaseConfig
 	Server   ServerConfig
+	RAG      RAGConfig
+}
+
+type RAGConfig struct {
+	Enabled   bool
+	AutoLearn bool
 }
 
 type DatabaseConfig struct {
@@ -72,6 +78,10 @@ func Load() Config {
 			AllowDangerousSQL:   envBool("MCP_SQLSERVER_ALLOW_DANGEROUS_SQL", false),
 			AllowSchemaChanges:  envBool("MCP_SQLSERVER_ALLOW_SCHEMA_CHANGES", false),
 			AllowProcedureCalls: envBool("MCP_SQLSERVER_ALLOW_PROCEDURE_CALLS", true),
+		},
+		RAG: RAGConfig{
+			Enabled:   envBool("MCP_RAG_ENABLED", true),
+			AutoLearn: envBool("MCP_RAG_AUTO_LEARN", true),
 		},
 	}
 }
