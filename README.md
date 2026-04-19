@@ -45,12 +45,12 @@ Environment variables:
 
 ### Windows
 
-Run these commands in PowerShell:
+Run these commands in CMD or PowerShell:
 
 ```powershell
 git clone https://github.com/TranHuyThang9999/mcp-sqlserver.git
 cd mcp-sqlserver
-powershell -ExecutionPolicy Bypass -File .\scripts\install.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File ".\scripts\install.ps1"
 ```
 
 This downloads the latest Windows release package and starts the installer.

@@ -51,8 +51,8 @@ if (-not (Test-Path $exe)) {
 Write-Success "Installed: $exe`n" $GREEN
 
 Write-Input "`n>>> SQL SERVER CONFIGURATION`n" $MAGENTA
-$host = Read-Host "Host     [localhost]"
-if ([string]::IsNullOrWhiteSpace($host)) { $host = "localhost" }
+$sqlHost = Read-Host "Host     [localhost]"
+if ([string]::IsNullOrWhiteSpace($sqlHost)) { $sqlHost = "localhost" }
 
 $port = Read-Host "Port     [1433]"
 if ([string]::IsNullOrWhiteSpace($port)) { $port = "1433" }
@@ -76,7 +76,7 @@ Write-Host "4. Claude Desktop only"
 $choice = Read-Host "Selection [1]"
 
 $envVars = @{
-    SQL_SERVER_HOST = $host
+    SQL_SERVER_HOST = $sqlHost
     SQL_SERVER_PORT = $port
     SQL_SERVER_USER = $user
     SQL_SERVER_PASSWORD = $pass
