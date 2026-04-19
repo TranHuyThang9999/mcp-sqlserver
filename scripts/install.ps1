@@ -10,6 +10,28 @@ function Write-Input($msg) { Write-Host $msg -ForegroundColor "Yellow" }
 function Write-Success($msg) { Write-Host $msg -ForegroundColor "Green" }
 function Write-Err($msg) { Write-Host $msg -ForegroundColor "Red" }
 
+function ConvertTo-TomlString($value) {
+    $escaped = [string]$value
+    $escaped = $escaped.Replace('\', '\\').Replace('"', '\"')
+    return '"' + $escaped + '"'
+}
+
+function Set-TomlBlock($path, $block) {
+    $normalizedBlock = $block.Trim()
+    if (Test-Path $path) {
+        $existing = Get-Content $path -Raw
+        $pattern = '(?m)^\[mcp_servers\.sqlserver\]\r?\n(?:(?!^\[).*\r?\n)*(?:^\[mcp_servers\.sqlserver\.env\]\r?\n(?:(?!^\[).*\r?\n)*)?'
+        if ([regex]::IsMatch($existing, $pattern)) {
+            $updated = [regex]::Replace($existing, $pattern, $normalizedBlock + "`r`n")
+        } else {
+            $updated = $existing.TrimEnd() + "`r`n`r`n" + $normalizedBlock + "`r`n"
+        }
+    } else {
+        $updated = $normalizedBlock + "`r`n"
+    }
+    Set-Content -Path $path -Value $updated -Encoding UTF8
+}
+
 $GREEN = "Green"
 $YELLOW = "Yellow"
 $CYAN = "Cyan"
@@ -84,6 +106,9 @@ $envVars = @{
     SQL_SERVER_ENCRYPT = "disable"
     SQL_SERVER_TRUST_CERT = "true"
     MCP_SQLSERVER_MAX_ROWS = "500"
+    MCP_SQLSERVER_ALLOW_SCHEMA_CHANGES = "false"
+    MCP_SQLSERVER_ALLOW_DANGEROUS_SQL = "false"
+    MCP_SQLSERVER_ALLOW_PROCEDURE_CALLS = "true"
 }
 
 function Set-CodexConfig($env, $cmd) {
@@ -91,21 +116,39 @@ function Set-CodexConfig($env, $cmd) {
     $dir = Split-Path $path -Parent
     if (-not (Test-Path $dir)) { New-Item $dir -ItemType Directory -Force | Out-Null }
 
+    $cmdToml = ConvertTo-TomlString $cmd
+    $hostToml = ConvertTo-TomlString $env.SQL_SERVER_HOST
+    $portToml = ConvertTo-TomlString $env.SQL_SERVER_PORT
+    $userToml = ConvertTo-TomlString $env.SQL_SERVER_USER
+    $passToml = ConvertTo-TomlString $env.SQL_SERVER_PASSWORD
+    $dbToml = ConvertTo-TomlString $env.SQL_SERVER_DATABASE
+    $encryptToml = ConvertTo-TomlString $env.SQL_SERVER_ENCRYPT
+    $trustCertToml = ConvertTo-TomlString $env.SQL_SERVER_TRUST_CERT
+    $maxRowsToml = ConvertTo-TomlString $env.MCP_SQLSERVER_MAX_ROWS
+    $allowSchemaToml = ConvertTo-TomlString $env.MCP_SQLSERVER_ALLOW_SCHEMA_CHANGES
+    $allowDangerousToml = ConvertTo-TomlString $env.MCP_SQLSERVER_ALLOW_DANGEROUS_SQL
+    $allowProceduresToml = ConvertTo-TomlString $env.MCP_SQLSERVER_ALLOW_PROCEDURE_CALLS
+
     $block = @"
 [mcp_servers.sqlserver]
-command = "$cmd"
+command = $cmdToml
 startup_timeout_sec = 10
 tool_timeout_sec = 60
 
 [mcp_servers.sqlserver.env]
-SQL_SERVER_HOST = "$($env.SQL_SERVER_HOST)"
-SQL_SERVER_PORT = "$($env.SQL_SERVER_PORT)"
-SQL_SERVER_USER = "$($env.SQL_SERVER_USER)"
-SQL_SERVER_PASSWORD = "$($env.SQL_SERVER_PASSWORD)"
-SQL_SERVER_DATABASE = "$($env.SQL_SERVER_DATABASE)"
-
+SQL_SERVER_HOST = $hostToml
+SQL_SERVER_PORT = $portToml
+SQL_SERVER_USER = $userToml
+SQL_SERVER_PASSWORD = $passToml
+SQL_SERVER_DATABASE = $dbToml
+SQL_SERVER_ENCRYPT = $encryptToml
+SQL_SERVER_TRUST_CERT = $trustCertToml
+MCP_SQLSERVER_MAX_ROWS = $maxRowsToml
+MCP_SQLSERVER_ALLOW_SCHEMA_CHANGES = $allowSchemaToml
+MCP_SQLSERVER_ALLOW_DANGEROUS_SQL = $allowDangerousToml
+MCP_SQLSERVER_ALLOW_PROCEDURE_CALLS = $allowProceduresToml
 "@
-    Add-Content -Path $path -Value $block -Encoding UTF8
+    Set-TomlBlock $path $block
     Write-Success "Codex: $path"
 }
 
@@ -145,17 +188,15 @@ function Set-ClaudeConfig($env, $cmd) {
     Write-Success "Claude: $path"
 }
 
-$exeEscaped = $exe -replace '\\', '\\'
-
 switch ($choice) {
     "1" {
-        Set-CodexConfig $envVars $exeEscaped
-        Set-CursorConfig $envVars $exeEscaped
-        Set-ClaudeConfig $envVars $exeEscaped
+        Set-CodexConfig $envVars $exe
+        Set-CursorConfig $envVars $exe
+        Set-ClaudeConfig $envVars $exe
     }
-    "2" { Set-CodexConfig $envVars $exeEscaped }
-    "3" { Set-CursorConfig $envVars $exeEscaped }
-    "4" { Set-ClaudeConfig $envVars $exeEscaped }
+    "2" { Set-CodexConfig $envVars $exe }
+    "3" { Set-CursorConfig $envVars $exe }
+    "4" { Set-ClaudeConfig $envVars $exe }
 }
 
 Write-Prompt "`n=== DONE ===`n" $GREEN

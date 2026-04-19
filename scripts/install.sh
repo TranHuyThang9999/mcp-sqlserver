@@ -74,6 +74,12 @@ SQL_SERVER_PORT = "$PORT"
 SQL_SERVER_USER = "$USER"
 SQL_SERVER_PASSWORD = "$PASS"
 SQL_SERVER_DATABASE = "$DB"
+SQL_SERVER_ENCRYPT = "disable"
+SQL_SERVER_TRUST_CERT = "true"
+MCP_SQLSERVER_MAX_ROWS = "500"
+MCP_SQLSERVER_ALLOW_SCHEMA_CHANGES = "false"
+MCP_SQLSERVER_ALLOW_DANGEROUS_SQL = "false"
+MCP_SQLSERVER_ALLOW_PROCEDURE_CALLS = "true"
 EOF
         echo -e "${GREEN}Codex: $HOME/.codex/config.toml${NC}"
         ;;
@@ -92,7 +98,13 @@ case "$CHOICE" in
         "SQL_SERVER_PORT": "$PORT",
         "SQL_SERVER_USER": "$USER",
         "SQL_SERVER_PASSWORD": "$PASS",
-        "SQL_SERVER_DATABASE": "$DB"
+        "SQL_SERVER_DATABASE": "$DB",
+        "SQL_SERVER_ENCRYPT": "disable",
+        "SQL_SERVER_TRUST_CERT": "true",
+        "MCP_SQLSERVER_MAX_ROWS": "500",
+        "MCP_SQLSERVER_ALLOW_SCHEMA_CHANGES": "false",
+        "MCP_SQLSERVER_ALLOW_DANGEROUS_SQL": "false",
+        "MCP_SQLSERVER_ALLOW_PROCEDURE_CALLS": "true"
       }
     }
   }
