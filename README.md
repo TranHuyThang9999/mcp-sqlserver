@@ -95,6 +95,22 @@ GitHub Actions will build, test, archive, checksum, and upload the release asset
 
 ## Run
 
+### Release binary (no Go required)
+
+After running the installer, point your MCP client to the installed executable.
+
+Run manually (Windows example):
+
+```powershell
+$env:SQL_SERVER_HOST = "localhost"
+$env:SQL_SERVER_USER = "sa"
+$env:SQL_SERVER_PASSWORD = "your_password"
+$env:SQL_SERVER_DATABASE = "your_database"
+"$env:LOCALAPPDATA\mcp-sqlserver\releases\<version>\mcp-sqlserver-windows-amd64\mcp-sqlserver.exe"
+```
+
+### Development (requires Go)
+
 ```powershell
 $env:SQL_SERVER_HOST = "localhost"
 $env:SQL_SERVER_USER = "sa"

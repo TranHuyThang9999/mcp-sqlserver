@@ -1,6 +1,8 @@
 param(
     [switch]$Unattended,
-    [string]$Version = "latest"
+    [string]$Version = "latest",
+    [string]$LocalExe = "",
+    [string]$CodexConfigPath = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -39,38 +41,60 @@ $MAGENTA = "Magenta"
 
 Write-Prompt "`n=== MCP SQL Server Installer ===`n" $GREEN
 
-$releasePath = "https://github.com/TranHuyThang9999/mcp-sqlserver/releases/$Version/download"
+$repo = "TranHuyThang9999/mcp-sqlserver"
 $appName = "mcp-sqlserver"
 
-if ($Version -eq "latest") {
-    $releaseUrl = "https://api.github.com/repos/TranHuyThang9999/mcp-sqlserver/releases/latest"
-    $response = Invoke-RestMethod $releaseUrl -UseBasicParsing
-    $Version = "v" + $response.tag_name -replace "v", ""
+if (-not [string]::IsNullOrWhiteSpace($LocalExe)) {
+    if (-not (Test-Path $LocalExe)) {
+        Write-Err "LocalExe not found: $LocalExe"
+        exit 1
+    }
+    $exe = (Get-Item -LiteralPath $LocalExe).FullName
+    Write-Success "Using local executable: $exe`n" $GREEN
+} else {
+    if ($Version -eq "latest") {
+        $releaseUrl = "https://api.github.com/repos/$repo/releases/latest"
+        $response = Invoke-RestMethod $releaseUrl -UseBasicParsing
+        $Version = $response.tag_name
+    } elseif (-not $Version.StartsWith("v")) {
+        $Version = "v$Version"
+    }
+
     Write-Prompt "Version: $Version`n" $CYAN
+
+    $downloadUrl = "https://github.com/$repo/releases/download/$Version/mcp-sqlserver-windows-amd64.zip"
+    $tempZip = Join-Path $env:TEMP "mcp-sqlserver-$Version.zip"
+    $installRoot = Join-Path $env:LOCALAPPDATA $appName
+    $installDir = Join-Path $installRoot "releases\$Version"
+
+    Write-Prompt "Downloading..." $YELLOW
+    try {
+        Invoke-WebRequest -Uri $downloadUrl -OutFile $tempZip -UseBasicParsing
+    } catch {
+        Write-Err "Download failed: $_"
+        exit 1
+    }
+
+    Write-Prompt "Extracting..." $YELLOW
+    New-Item -Path $installDir -ItemType Directory -Force | Out-Null
+    Expand-Archive -Path $tempZip -DestinationPath $installDir -Force
+    Remove-Item $tempZip -Force
+
+    $expectedExe = Join-Path $installDir "mcp-sqlserver-windows-amd64\mcp-sqlserver.exe"
+    if (Test-Path $expectedExe) {
+        $exe = $expectedExe
+    } else {
+        $exe = Get-ChildItem -Path $installDir -Recurse -Filter "mcp-sqlserver.exe" -File -ErrorAction SilentlyContinue |
+            Sort-Object LastWriteTime -Descending |
+            Select-Object -First 1 -ExpandProperty FullName
+    }
+    if (-not $exe -or -not (Test-Path $exe)) {
+        Write-Err "Install failed: could not locate mcp-sqlserver.exe under $installDir"
+        exit 1
+    }
+
+    Write-Success "Installed: $exe`n" $GREEN
 }
-
-$downloadUrl = "$releasePath/mcp-sqlserver-windows-amd64.zip"
-$tempZip = "$env:TEMP\mcp-sqlserver.zip"
-$installDir = "$env:LOCALAPPDATA\$appName"
-
-Write-Prompt "Downloading..." $YELLOW
-try {
-    Invoke-WebRequest -Uri $downloadUrl -OutFile $tempZip -UseBasicParsing
-} catch {
-    Write-Err "Download failed: $_"
-    exit 1
-}
-
-Write-Prompt "Extracting..." $YELLOW
-Expand-Archive -Path $tempZip -DestinationPath $installDir -Force
-Remove-Item $tempZip -Force
-
-$exe = Join-Path $installDir "mcp-sqlserver.exe"
-if (-not (Test-Path $exe)) {
-    $exe = Get-ChildItem $installDir -Filter "*.exe" | Select-Object -First 1 -ExpandProperty FullName
-}
-
-Write-Success "Installed: $exe`n" $GREEN
 
 Write-Input "`n>>> SQL SERVER CONFIGURATION`n" $MAGENTA
 $sqlHost = Read-Host "Host     [localhost]"
@@ -112,7 +136,11 @@ $envVars = @{
 }
 
 function Set-CodexConfig($env, $cmd) {
-    $path = "$HOME\.codex\config.toml"
+    if ([string]::IsNullOrWhiteSpace($CodexConfigPath)) {
+        $path = "$HOME\.codex\config.toml"
+    } else {
+        $path = $CodexConfigPath
+    }
     $dir = Split-Path $path -Parent
     if (-not (Test-Path $dir)) { New-Item $dir -ItemType Directory -Force | Out-Null }
 
